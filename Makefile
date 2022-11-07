@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wextra -Wall
+CFLAGS = -Wextra -Wall -O3
 CFLAGS += -DSHA3_XOF
 LDFLAGS = -I./src/include
 
@@ -10,7 +10,7 @@ all: sha3sum libsha3.a
 libsha3.a: $(OBJS)
 	ar rcs $@ $^
 
-sha3sum: CFLAGS += -std=c99 -O3
+sha3sum: CFLAGS += -std=c99
 sha3sum: $(OBJS)
 	$(CC) $(CFLAGS) $^ -o $@
 

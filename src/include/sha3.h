@@ -51,10 +51,12 @@ unsigned char *SHA3_512(unsigned char *md, const void *data, size_t len);
 int SHAKE128_Init(SHA3_CTX *c);
 int SHAKE128_Update(SHA3_CTX *c, const void *data, size_t len);
 int SHAKE128_Final(unsigned char *md, size_t mdlen, SHA3_CTX *c);
-unsigned char *SHAKE128(unsigned char *md, size_t mdlen, const void *data, size_t len);
+unsigned char *SHAKE128(
+	unsigned char *md, size_t mdlen, const void *data, size_t len);
 
 int SHAKE256_Init(SHA3_CTX *c);
 int SHAKE256_Update(SHA3_CTX *c, const void *data, size_t len);
 int SHAKE256_Final(unsigned char *md, size_t mdlen, SHA3_CTX *c);
-unsigned char *SHAKE256(unsigned char *md, size_t mdlen, const void *data, size_t len);
+unsigned char *SHAKE256(
+	unsigned char *md, size_t mdlen, const void *data, size_t len);
 #endif

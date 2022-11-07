@@ -69,59 +69,59 @@ sha3_final(unsigned char *md, size_t mdlen, SHA3_CTX *c, unsigned char suffix,
 	return 1;
 }
 
-#define DEFSHA3_INIT(Name)                                                  \
+#define DEFSHA3_INIT(Name)                                                   \
 	int Name##_Init(SHA3_CTX *c) { return sha3_init(c); }
 
-#define DEFSHA3_UPDATE(Name, Bits)                                          \
-	int Name##_Update(SHA3_CTX *c, const void *data, size_t len)            \
-	{                                                                       \
-		return sha3_update(c, data, len, 200 - Bits / 4);                   \
+#define DEFSHA3_UPDATE(Name, Bits)                                           \
+	int Name##_Update(SHA3_CTX *c, const void *data, size_t len)         \
+	{                                                                    \
+		return sha3_update(c, data, len, 200 - Bits / 4);            \
 	}
 
-#define DEFSHA3_FINAL(Name, Bits, Pad)                                      \
-	int Name##_Final(unsigned char *md, SHA3_CTX *c)                        \
-	{                                                                       \
-		return sha3_final(md, Bits / 8, c, Pad, 200 - Bits / 4);            \
+#define DEFSHA3_FINAL(Name, Bits, Pad)                                       \
+	int Name##_Final(unsigned char *md, SHA3_CTX *c)                     \
+	{                                                                    \
+		return sha3_final(md, Bits / 8, c, Pad, 200 - Bits / 4);     \
 	}
 
-#define DEFSHA3_FINALXOF(Name, Bits, Pad)                                   \
-	int Name##_Final(unsigned char *md, size_t mdlen, SHA3_CTX *c)          \
-	{                                                                       \
-		return sha3_final(md, mdlen, c, Pad, 200 - Bits / 4);               \
+#define DEFSHA3_FINALXOF(Name, Bits, Pad)                                    \
+	int Name##_Final(unsigned char *md, size_t mdlen, SHA3_CTX *c)       \
+	{                                                                    \
+		return sha3_final(md, mdlen, c, Pad, 200 - Bits / 4);        \
 	}
 
-#define DEFSHA3_ONESHOT(Name, Bits, Pad)                                    \
-    unsigned char * Name(unsigned char *md, const void *data, size_t len) \
-    {                                                                       \
-        SHA3_CTX c;                                                         \
-        sha3_init(&c);                                                      \
-        sha3_update(&c, data, len, 200 - Bits / 4);                         \
-        sha3_final(md, Bits / 8, &c, Pad, 200 - Bits / 4);                  \
-        return md;                                                          \
-    }
+#define DEFSHA3_ONESHOT(Name, Bits, Pad)                                     \
+	unsigned char *Name(unsigned char *md, const void *data, size_t len) \
+	{                                                                    \
+		SHA3_CTX c;                                                  \
+		sha3_init(&c);                                               \
+		sha3_update(&c, data, len, 200 - Bits / 4);                  \
+		sha3_final(md, Bits / 8, &c, Pad, 200 - Bits / 4);           \
+		return md;                                                   \
+	}
 
-#define DEFSHA3_ONESHOTXOF(Name, Bits, Pad)                                                 \
-    unsigned char * Name(unsigned char *md, size_t mdlen, const void *data, size_t len)     \
-    {                                                                                       \
-        SHA3_CTX c;                                                                         \
-        sha3_init(&c);                                                                      \
-        sha3_update(&c, data, len, 200 - Bits / 4);                                         \
-        sha3_final(md, mdlen, &c, Pad, 200 - Bits / 4);                                     \
-        return md;                                                                          \
-    }
+#define DEFSHA3_ONESHOTXOF(Name, Bits, Pad)                                  \
+	unsigned char *Name(unsigned char *md, size_t mdlen,                 \
+		const void *data, size_t len)                                \
+	{                                                                    \
+		SHA3_CTX c;                                                  \
+		sha3_init(&c);                                               \
+		sha3_update(&c, data, len, 200 - Bits / 4);                  \
+		sha3_final(md, mdlen, &c, Pad, 200 - Bits / 4);              \
+		return md;                                                   \
+	}
 
+#define DEFSHA3(Bits)                                                        \
+	DEFSHA3_INIT(SHA3_##Bits)                                            \
+	DEFSHA3_UPDATE(SHA3_##Bits, Bits)                                    \
+	DEFSHA3_FINAL(SHA3_##Bits, Bits, 0x06)                               \
+	DEFSHA3_ONESHOT(SHA3_##Bits, Bits, 0x06)
 
-#define DEFSHA3(Bits)                                                       \
-	DEFSHA3_INIT(SHA3_##Bits)                                               \
-	DEFSHA3_UPDATE(SHA3_##Bits, Bits)                                       \
-	DEFSHA3_FINAL(SHA3_##Bits, Bits, 0x06)                                  \
-    DEFSHA3_ONESHOT(SHA3_##Bits, Bits, 0x06)                                
-
-#define DEFSHAKE(Bits)                                                      \
-	DEFSHA3_INIT(SHAKE##Bits)                                               \
-	DEFSHA3_UPDATE(SHAKE##Bits, Bits)                                       \
-	DEFSHA3_FINALXOF(SHAKE##Bits, Bits, 0x1F)                               \
-    DEFSHA3_ONESHOTXOF(SHAKE##Bits, Bits, 0x1F)
+#define DEFSHAKE(Bits)                                                       \
+	DEFSHA3_INIT(SHAKE##Bits)                                            \
+	DEFSHA3_UPDATE(SHAKE##Bits, Bits)                                    \
+	DEFSHA3_FINALXOF(SHAKE##Bits, Bits, 0x1F)                            \
+	DEFSHA3_ONESHOTXOF(SHAKE##Bits, Bits, 0x1F)
 
 DEFSHA3(224)
 DEFSHA3(256)

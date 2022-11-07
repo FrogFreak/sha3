@@ -73,9 +73,9 @@ static sha3func_t sha3 = { 0 };
 
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-#define ECHO_DIGEST(md, mdlen)                                  \
-	for (size_t i = 0; i < mdlen; i++) {                        \
-		fprintf(stdout, "%02x", md[i]);                         \
+#define ECHO_DIGEST(md, mdlen)                                               \
+	for (size_t i = 0; i < mdlen; i++) {                                 \
+		fprintf(stdout, "%02x", md[i]);                              \
 	}
 
 static int
@@ -143,23 +143,23 @@ main(int argc, char *argv[])
 
 	/* Get FIPS202 Instance */
 	switch (opt_bits) {
-#define SHA3(bits)                                                          \
-	(sha3func_t)                                                            \
-	{                                                                       \
-		.init = SHA3_##bits##_Init, .update = SHA3_##bits##_Update,         \
-		.final = SHA3_##bits##_Final, .blocksz = 200 - bits / 4,            \
-		.dlen = bits / 8, .xof = 0                                          \
+#define SHA3(bits)                                                           \
+	(sha3func_t)                                                         \
+	{                                                                    \
+		.init = SHA3_##bits##_Init, .update = SHA3_##bits##_Update,  \
+		.final = SHA3_##bits##_Final, .blocksz = 200 - bits / 4,     \
+		.dlen = bits / 8, .xof = 0                                   \
 	}
 #ifndef SHA3_XOF
-#define SHAKE(bits)                                                         \
+#define SHAKE(bits)                                                          \
 	(sha3func_t) { 0 }
 #else
-#define SHAKE(bits)                                                         \
-	(sha3func_t)                                                            \
-	{                                                                       \
-		.init = SHAKE##bits##_Init, .update = SHAKE##bits##_Update,         \
-		.final_xof = SHAKE##bits##_Final, .blocksz = 200 - bits / 4,        \
-		.dlen = bits / 8, .xof = 1                                          \
+#define SHAKE(bits)                                                          \
+	(sha3func_t)                                                         \
+	{                                                                    \
+		.init = SHAKE##bits##_Init, .update = SHAKE##bits##_Update,  \
+		.final_xof = SHAKE##bits##_Final, .blocksz = 200 - bits / 4, \
+		.dlen = bits / 8, .xof = 1                                   \
 	}
 	case 128:
 		sha3 = SHAKE(128);
