@@ -16,27 +16,27 @@
 
 #include <stddef.h>
 
-#ifndef HEADER_KECCAK_H 
-#define HEADER_KECCAK_H 
+#ifndef HEADER_KECCAK_H
+#define HEADER_KECCAK_H
 
 #include <stdint.h>
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef uint64_t KECCAK_U64;
 
-size_t
-Keccak1600_Absorb(KECCAK_U64 state[25], const char *data, size_t len, size_t blocksz);
+size_t Keccak1600_Absorb(
+	KECCAK_U64 state[25], const char *data, size_t len, size_t blocksz);
 
-void
-Keccak1600_Pad(char *m, size_t mlen, unsigned char suffix, size_t blocksz);
+void Keccak1600_Pad(
+	char *m, size_t mlen, unsigned char suffix, size_t blocksz);
 
-void
-Keccak1600_Squeeze(unsigned char *md, size_t mdlen, KECCAK_U64 state[25], size_t blocksz);
+void Keccak1600_Squeeze(unsigned char *md, size_t mdlen, KECCAK_U64 state[25],
+	size_t blocksz);
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

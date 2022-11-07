@@ -21,12 +21,11 @@
 
 typedef uint64_t SHA_LONG64;
 
-typedef struct keccak1600_st
-{
-    SHA_LONG64      state[25];
-    char            buf[168];
-    size_t          bufsz;
-    unsigned        finalized: 1;
+typedef struct keccak1600_st {
+	SHA_LONG64 state[25];
+	char buf[168];
+	size_t bufsz;
+	unsigned finalized : 1;
 } SHA3_CTX;
 
 int SHA3_224_Init(SHA3_CTX *c);
