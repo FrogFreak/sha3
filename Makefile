@@ -1,13 +1,27 @@
 CC = gcc
-CFLAGS = -I./src/include -g -Wextra -Wall -fsanitize=address -std=c99
+CFLAGS = -Wextra -Wall
+CFLAGS += -DSHA3_XOF
+LDFLAGS = -I./src/include
+
+OBJS = src/keccak1600.o src/sha3.o src/sha3sum.o
 BIN = sha3sum
-OBJS = src/sha3.o src/sha3sum.o
 
 all: $(BIN)
 
-$(BIN): $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
-.PHONY: clean all
+sha3sum: CFLAGS += -std=c99 -O3
+sha3sum: $(OBJS)
+	$(CC) $(CFLAGS) $^ -o $(BIN)
 
+%.o: %.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $^ -o $@
+
+check: sha3sum
+	$(eval TMP := $(shell mktemp))
+	@dd if=/dev/urandom of=$(TMP) bs=1M count=1 2>/dev/null
+	@echo "Testfile $(TMP) (1MiB)"
+	@echo -e "RESULT:\t\t$$(time ./sha3sum $(TMP))"
+	@echo -e "EXPECTED:\t$$(time sha3sum $(TMP))"
+
+.PHONY: clean all
 clean:
-	rm -f $(BIN) $(OBJS)
+	rm -f $(OBJS) sha3sum

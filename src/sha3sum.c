@@ -1,152 +1,209 @@
-#include "sha3.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>
-#include <assert.h>
 #include <fcntl.h>
 
-#define PACKAGE "sha3sum"
+#define PACKAGE        "sha3sum"
+
+#include "sha3.h"
+
+/*
+ * Command line usages and arguments
+ */
+static const char *usages =
+    "Usage: " PACKAGE " [OPTIONS]... [FILE]...\n"
+    "Print or check SHA-3/SHAKE checksums.\n"  
+    "With no FILE, or when FILE is -, read standard input.\n"
+    "\n"
+    "   -a, --algorithm     SHA3:  224 (default), 256, 384, 512\n"
+#ifdef SHA3_XOF
+    "                       SHAKE: 128, 256\n"
+    "   -d, --dlen          digest length in bits when using SHAKE128 or SHAKE256\n"
+#endif
+    "   -h, --help          display this help and exit\n"
+; 
+
+enum {
+    OPT_UNKNOWN     = '?',
+    OPT_HELP        = 'h',
+    OPT_ALGORITHM   = 'a',
+    OPT_DIGESTLEN   = 'd'
+};
+
+static const char *short_opts = "ha:d:" ;
+
+static const struct option long_opts[] = {
+    { "help",       no_argument,        NULL, 'h' },
+    { "algorithm",  required_argument,  NULL, 'a' },
+    { "dlen",       required_argument,  NULL, 'd' },
+    { NULL, 0, NULL, 0 }
+};
+
+/*
+ * SHA3 functions and checksum
+ */
 
 typedef struct {
-    unsigned    xof : 1;
+    /* to optimize call and buffering */
+    size_t      blocksz;
+    size_t      dlen;
+    unsigned    xof: 1;
     int         (*init)(SHA3_CTX *);
     int         (*update)(SHA3_CTX *, const void *, size_t);
     union {
         int     (*final)(unsigned char *, SHA3_CTX *);
         int     (*final_xof)(unsigned char *, size_t, SHA3_CTX *);
     };
-} SHA3_Instance;
+} sha3func_t;
 
-static const char *errmsg;
-static const char *usages =
-    "Usage: " PACKAGE " [OPTIONS]... [FILE]...\n"
-    "Print or check SHA-3 checksums.\n"  
-    "With no FILE, or when FILE is -, read standard input.\n"
-    "\n"
-    "   -a, --algorithm   224 (default), 256, 384, 512, 128000, 256000\n"
-    "   -x, --xof         number\n"
-    "   -h, --help        display this help and exit\n"
-    ; 
-
-enum {
-    OPT_UNKNOWN     = '?',
-    OPT_HELP        = 'h',
-    OPT_ALGORITHM   = 'a'
-};
-static const char *short_opts = "ha:";
-static const struct option long_opts[] = {
-    { "help",       no_argument,        NULL, 'h' },
-    { "algorithm",  required_argument,  NULL, 'a' },
-    { NULL, 0, NULL, 0 }
-};
+static sha3func_t sha3 = {0};
 
 
-static int
-sha3sum(unsigned bits, unsigned char *md, size_t mdlen, FILE *fp)
-{
-#define BUFSZ 1024
-    char buf[BUFSZ];
-    ssize_t r;
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-    SHA3_CTX C;
-    SHA3_Instance H;
-    H.xof = bits == 128 || bits == 256;
-    switch(bits)
-    {
-#define SHAKE_CASE(b)                                                                           \
-        H.init = SHAKE##b##_Init, H.update = SHAKE##b##_Update, H.final_xof = SHAKE##b##_Final
-#define SHA3_CASE(b)                                                                            \
-        H.init = SHA3_##b##_Init, H.update = SHA3_##b##_Update, H.final = SHA3_##b##_Final  
-    case 224:
-        SHA3_CASE(224);
-        break;
-    case 256:
-        if (H.xof)
-            SHAKE_CASE(256);
-        else
-            SHA3_CASE(256);
-        break;
-    case 384:
-        SHA3_CASE(384);
-        break;
-    case 512:
-        SHA3_CASE(512);
-        break;
-    case 128:
-        if (H.xof)
-        {
-            SHAKE_CASE(128);
-            break;
-        }
-    __attribute__((fallthrough));
-    default:
-        errmsg = "invalid sha3 instance";
-        return 1;
-    }
-
-    H.init(&C);
-    while ((r = fread(buf, 1, BUFSZ, fp)) != 0)
-    {
-        H.update(&C, buf, r);
-    }
-    if (H.xof)
-        H.final_xof(md, mdlen, &C);
-    else
-        H.final(md, &C);
-
-    return 0;
-}
-
-#define ECHO_DIGEST(md, mdlen, filename)    \
+#define ECHO_DIGEST(md, mdlen)              \
     for (size_t i = 0; i < mdlen; i++)      \
     {                                       \
         fprintf(stdout, "%02x", md[i]);     \
-    }                                       \
-    fprintf(stdout, "  %s\n", filename); 
+    }
+
+static int
+sha3sum(const char *filename)
+{
+    SHA3_CTX ctx;
+#define MAXBLOCKSZ  200 - 128/4
+    unsigned char md[MAXBLOCKSZ];
+#define BUFSZ       4096
+    char buf[BUFSZ];
+    size_t r;
+    FILE *fp;
+ 
+    if (filename[0] == '-' && filename[1] == '\0')
+        fp = stdin;
+    else
+        fp = fopen(filename, "rt");
+
+    sha3.init(&ctx);
+    while ((r = fread(buf, 1, BUFSZ - (BUFSZ % sha3.blocksz), fp)) != 0)
+    {
+        sha3.update(&ctx, buf, r);
+    }
+
+    if (sha3.xof)
+    {
+        for (size_t i = 0; i < sha3.dlen; i += r)
+        {
+            r = MIN(sha3.dlen - i, sha3.blocksz); 
+            sha3.final_xof(md, r, &ctx);
+            ECHO_DIGEST(md, r);
+        }
+    }
+    else
+    {
+        sha3.final(md, &ctx);
+        ECHO_DIGEST(md, sha3.dlen);
+    }
+
+    fprintf(stdout, "  %s\n", filename);
+    if (fp != stdin)
+        fclose(fp);
+    return EXIT_SUCCESS;
+}
 
 int
 main(int argc, char *argv[])
 {
-    FILE *fp;
-#define MAX_MDLEN 64
-    unsigned char md[MAX_MDLEN] = {0};
-    unsigned bits = 224;
+    unsigned opt_bits = 224;
+    size_t opt_dlen = 0;
     int opt;
 
+    /* Parse CLI options */
     do {
         opt = getopt_long(argc, argv, short_opts, long_opts, NULL);
         switch(opt)
         {
-        case OPT_UNKNOWN:
-            errmsg = "Type sha3sum -h for help";
-            goto exit_error;
+        case OPT_ALGORITHM:
+            opt_bits = atoi(optarg);
+            break;
+        case OPT_DIGESTLEN:
+            opt_dlen = atoi(optarg)/8;
+            break;
         case OPT_HELP:
             fprintf(stdout, usages);
-            return 0;
-        case OPT_ALGORITHM:
-            bits = atoi(optarg);
-            break;
+            return EXIT_SUCCESS;
+        case OPT_UNKNOWN:
+            goto exit_error;
         }
     } while (opt != -1);
 
+    /* Get FIPS202 Instance */
+    switch(opt_bits)
+    {
+# define SHA3(bits) (sha3func_t) {              \
+        .init       = SHA3_##bits##_Init,       \
+        .update     = SHA3_##bits##_Update,     \
+        .final      = SHA3_##bits##_Final,      \
+        .blocksz    = 200 - bits/4,             \
+        .dlen       = bits/8,                   \
+        .xof        = 0                         \
+    }
+#ifndef SHA3_XOF
+# define SHAKE(bits) (sha3func_t) {0}
+#else
+# define SHAKE(bits) (sha3func_t) {             \
+        .init       = SHAKE##bits##_Init,       \
+        .update     = SHAKE##bits##_Update,     \
+        .final_xof  = SHAKE##bits##_Final,      \
+        .blocksz    = 200 - bits/4,             \
+        .dlen       = bits/8,                   \
+        .xof        = 1                         \
+    }
+    case 128:
+        sha3 = SHAKE(128);
+        break;
+#endif
+    case 224:
+        sha3 = SHA3(224);
+        break;
+    case 256:
+        sha3 = (opt_dlen) ? SHAKE(256) : SHA3(256); 
+        break;
+    case 384:
+        sha3 = SHA3(384);
+        break;
+    case 512:
+        sha3 = SHA3(512);
+        break;
+    default:
+        fprintf(stderr, PACKAGE ": invalid algorithm\n");
+        return EXIT_FAILURE;
+    }
+
+    if (opt_dlen)
+    {
+        if (!sha3.xof)
+        {
+            fprintf(stderr, PACKAGE ": digest length argument is only valid for SHAKE functions\n");
+            goto exit_error;
+        }
+        sha3.dlen = opt_dlen;
+    }
+
+    /* Compute and print files digest */
     if (optind == argc)
     {
-       sha3sum(bits, md, bits/8, stdin);
-       ECHO_DIGEST(md, bits/8, "-");
+        sha3sum("-");
     }
 
     for (; optind < argc; optind++)
     {
-        fp = fopen(argv[optind], "rt");
-        sha3sum(bits, md, bits/8, fp);
-        ECHO_DIGEST(md, bits/8, argv[optind]);
-        fclose(fp);
+        sha3sum(argv[optind]);
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 
 exit_error:
-    fprintf(stderr, errmsg);
-    return 1;
+    fprintf(stderr, "Type " PACKAGE " -h for help\n");
+    return EXIT_FAILURE;
 }
